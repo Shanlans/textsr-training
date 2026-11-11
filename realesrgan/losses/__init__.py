@@ -14,6 +14,7 @@ from .masked_l1_loss import MaskedL1Loss
 from .masked_l1_loss_v2 import TextRegionPerceptualLossV2
 from .y_only_sobel_loss import YOnlySobelLoss
 from .fft_loss import FFTAmplitudeLoss
+from .radial_freq_loss import RadialFreqLoss
 from .crnn_content_perceptual_loss import CRNNTextLineContentLoss
 from .basic_text_line_p0_losses import (
     BoxAwareMaskedL1LossV2,

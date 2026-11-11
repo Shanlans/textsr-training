@@ -73,6 +73,15 @@ class BasicTextLineY4UVTrainingModelV3(SRModel):
         if bg_lf_opt is None and float(train_opt.get("bg_lf_weight", 0.0)) > 0.0:
             bg_lf_opt = {"type": "BackgroundLowFrequencyLoss", "radius": 7, "sigma": 4.0, "channel": "luma"}
         self.cri_bg_lf = build_loss(bg_lf_opt).to(self.device) if bg_lf_opt else None
+        # Radially weighted FFT amplitude term (ZoomSR RadialFreqLoss methodology): ``fft_opt`` builds the loss,
+        # ``fft_weight`` is ramped by _schedule like the other auxiliary terms.
+        fft_opt = train_opt.get("fft_opt")
+        self.cri_fft = build_loss(fft_opt).to(self.device) if fft_opt else None
+        self.fft_weight = float(train_opt.get("fft_weight", 0.0))
+        if self.fft_weight < 0.0:
+            raise ValueError("fft_weight must be non-negative")
+        if self.fft_weight > 0.0 and self.cri_fft is None:
+            raise ValueError("fft_weight is positive but fft_opt did not build a loss")
         # Keep the selected formulation visible in scalar traces.  The guard
         # variant is deliberately a separate registered loss so old BG-LF
         # runs retain their historical blur-before-mask behavior.
@@ -568,6 +577,25 @@ class BasicTextLineY4UVTrainingModelV3(SRModel):
             logs["l_missing_raw"], logs["l_false_raw"] = missing.detach(), false.detach()
             logs["l_missing"], logs["l_false"] = (missing_scale * missing).detach(), (false_scale * false).detach()
             logs["recall_active_ratio"] = details["active"].float().mean().detach()
+
+        fft_scale = self._schedule(self.fft_weight, current_iter)
+        if self.cri_fft is not None:
+            logs["fft_scale"] = self.output.new_tensor(fft_scale)
+        if self.cri_fft is not None and fft_scale > 0.0:
+            if self.gt_rgb is None:
+                raise RuntimeError("fft loss requires full-resolution gt_rgb")
+            output444 = output444 if output444 is not None else y4uv_to_yuv444(self.output)
+            output_rgb = output_rgb if output_rgb is not None else YUV2RGB(output444, format="RGB", is_train=True, uv_normalized=True)
+            raw_fft, fft_details = self.cri_fft(output_rgb, self.gt_rgb, valid_mask=self.valid_mask_rgb, return_details=True)
+            total = total + fft_scale * raw_fft
+            logs["l_fft_raw"] = raw_fft.detach()
+            logs["l_fft"] = (fft_scale * raw_fft).detach()
+            logs["fft_hf_ratio_pred"] = fft_details["hf_ratio_pred"].detach()
+            logs["fft_hf_ratio_gt"] = fft_details["hf_ratio_gt"].detach()
+        elif self.cri_fft is not None:
+            zero = self.output.sum() * 0.0
+            logs["l_fft_raw"] = zero
+            logs["l_fft"] = zero
 
         if skel_fbeta_weight > 0.0 and self.cri_skel_fbeta is None:
             raise RuntimeError("skel_fbeta_weight is positive but skel_fbeta_opt did not build a loss")
