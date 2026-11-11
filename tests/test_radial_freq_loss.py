@@ -1,11 +1,18 @@
 """RadialFreqLoss: the radial weight is 0 inside r_lo and 1 at Nyquist with a power-controlled ramp, identical
 images give zero loss, a blurred prediction gives a positive differentiable loss with a lower high-frequency ratio,
 the valid mask excludes unsupervised pixels, power=0 is the truncated full-band L1, and the registry builds it."""
+import sys
+from pathlib import Path
+
 import torch
 
-from basicsr.losses import build_loss
-import realesrgan.losses  # noqa: F401  registers RadialFreqLoss
-from realesrgan.losses.radial_freq_loss import RadialFreqLoss, normalised_radius, radial_weight
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from tools.train_v3m_block256 import bootstrap  # noqa: E402  same bootstrap as the other kit tests (binds package roots)
+
+bootstrap(str(ROOT))
+from basicsr.losses import build_loss  # noqa: E402
+from realesrgan.losses.radial_freq_loss import RadialFreqLoss, normalised_radius, radial_weight  # noqa: E402
 
 
 def _text_like(seed: int = 0, size: int = 64) -> torch.Tensor:

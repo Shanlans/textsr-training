@@ -30,6 +30,7 @@ from realesrgan.losses.gt_sdf_boundary_loss import GTSDFBoundaryLoss
 from realesrgan.losses.normal_profile_loss import BoundaryNormalProfileLoss
 from realesrgan.losses.stroke_core_overshoot_loss import StrokeCoreLoss, OvershootLoss
 from realesrgan.losses.uv_structure_supervision_loss import UVStrongSupervisionLoss
+from realesrgan.losses.radial_freq_loss import RadialFreqLoss  # noqa: F401  registers the type for build_loss
 
 
 @MODEL_REGISTRY.register()
